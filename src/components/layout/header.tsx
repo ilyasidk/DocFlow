@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Menu, Bell, LogOut, UserCircle, Briefcase, FileText } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 
 export default function Header() {
   const { user, logout, switchRole } = useAuth();
@@ -75,6 +75,7 @@ export default function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left">
+              <SheetTitle className="sr-only">Меню навигации</SheetTitle>
               <div className="flex flex-col gap-4 py-4">
                 <Link 
                   href="/dashboard" 
