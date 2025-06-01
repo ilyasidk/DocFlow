@@ -7,7 +7,8 @@ import {
   CardContent, 
   CardDescription, 
   CardHeader, 
-  CardTitle 
+  CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -20,28 +21,45 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  AlertCircle
+  AlertCircle,
+  ChevronRight
 } from 'lucide-react';
 import { 
   documents, 
   getDocumentsByUser, 
   getDocumentsAwaitingApproval 
 } from '@/lib/mock-data';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import RecentActivity from '@/components/layout/recent-activity';
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
   if (!user) return null;
 
-  // Get appropriate documents based on role
-  const myDocuments = getDocumentsByUser(user.id);
-  const pendingApproval = getDocumentsAwaitingApproval(user.id);
+  // Получаем документы для текущего пользователя
+  const userDocuments = documents.filter(doc => doc.createdBy.id === user.id);
+  const userDrafts = userDocuments.filter(doc => doc.status === DocumentStatus.DRAFT);
+  const userPending = userDocuments.filter(doc => doc.status === DocumentStatus.PENDING);
+  const userRejected = userDocuments.filter(doc => doc.status === DocumentStatus.REJECTED);
+  
+  // Документы, ожидающие согласования
+  const documentsToApprove = getDocumentsAwaitingApproval(user.id);
   
   // Count document statuses
   const allDocumentsCount = documents.length;
   const pendingCount = documents.filter(doc => doc.status === DocumentStatus.PENDING).length;
   const approvedCount = documents.filter(doc => doc.status === DocumentStatus.APPROVED).length;
   const rejectedCount = documents.filter(doc => doc.status === DocumentStatus.REJECTED).length;
+
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  };
 
   return (
     <div className="space-y-6">
@@ -149,7 +167,7 @@ export default function DashboardPage() {
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingApproval.length}</div>
+              <div className="text-2xl font-bold">{documentsToApprove.length}</div>
               <p className="text-xs text-muted-foreground">
                 Документы, требующие вашего рассмотрения
               </p>
@@ -183,7 +201,7 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myDocuments.length}</div>
+              <div className="text-2xl font-bold">{userDocuments.length}</div>
               <p className="text-xs text-muted-foreground">
                 Созданные вами документы
               </p>
@@ -198,7 +216,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {myDocuments.filter(doc => doc.status === DocumentStatus.PENDING).length}
+                {userPending.length}
               </div>
               <p className="text-xs text-muted-foreground">
                 Ожидают согласования
@@ -214,7 +232,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {myDocuments.filter(doc => doc.status === DocumentStatus.APPROVED).length}
+                {userDocuments.filter(doc => doc.status === DocumentStatus.APPROVED).length}
               </div>
               <p className="text-xs text-muted-foreground">
                 Успешно обработаны
@@ -265,47 +283,130 @@ export default function DashboardPage() {
       )}
       
       {/* Recent Activity */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Недавняя активность</h2>
-        <div className="space-y-4">
-          {documents.slice(0, 5).map((doc) => (
-            <Card key={doc.id}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="p-2 rounded-full bg-primary/10 mr-4">
-                    <FileText className="h-5 w-5 text-primary" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Документы на согласование */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Ожидают вашего согласования</CardTitle>
+            <CardDescription>
+              Документы, требующие вашего рассмотрения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {documentsToApprove.length > 0 ? (
+              <div className="space-y-4">
+                {documentsToApprove.slice(0, 4).map((doc) => (
+                  <div key={doc.id} className="flex items-start space-x-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={doc.createdBy.avatar} alt={doc.createdBy.name} />
+                      <AvatarFallback>{getInitials(doc.createdBy.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{doc.title}</p>
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                          На согласовании
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.createdBy.name} • {new Date(doc.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{doc.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {doc.createdBy.name} • {new Date(doc.updatedAt).toLocaleDateString()}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm">Нет документов, требующих согласования</p>
+              </div>
+            )}
+          </CardContent>
+          {documentsToApprove.length > 0 && (
+            <CardFooter>
+              <Button asChild variant="ghost" className="w-full">
+                <Link href="/approvals">
+                  <span>Все документы на согласование</span>
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+        
+        {/* Недавняя активность */}
+        <RecentActivity />
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Последние документы</CardTitle>
+          <CardDescription>
+            Ваши недавние документы
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {userDocuments.length > 0 ? (
+            <div className="space-y-4">
+              {userDocuments.slice(0, 5).map((doc) => (
+                <div key={doc.id} className="flex items-start space-x-3">
+                  <div className="mt-0.5">
+                    {doc.status === DocumentStatus.APPROVED && <CheckCircle className="h-5 w-5 text-green-500" />}
+                    {doc.status === DocumentStatus.PENDING && <Clock className="h-5 w-5 text-yellow-500" />}
+                    {doc.status === DocumentStatus.REJECTED && <XCircle className="h-5 w-5 text-red-500" />}
+                    {doc.status === DocumentStatus.DRAFT && <FileText className="h-5 w-5 text-gray-500" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{doc.title}</p>
+                      <span className={`
+                        px-2 py-0.5 rounded-full text-xs
+                        ${doc.status === DocumentStatus.APPROVED ? 'bg-green-100 text-green-800' : ''}
+                        ${doc.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' : ''}
+                        ${doc.status === DocumentStatus.REJECTED ? 'bg-red-100 text-red-800' : ''}
+                        ${doc.status === DocumentStatus.DRAFT ? 'bg-gray-100 text-gray-800' : ''}
+                      `}>
+                        {doc.status === DocumentStatus.APPROVED ? 'Согласован' : ''}
+                        {doc.status === DocumentStatus.PENDING ? 'На согласовании' : ''}
+                        {doc.status === DocumentStatus.REJECTED ? 'Отклонен' : ''}
+                        {doc.status === DocumentStatus.DRAFT ? 'Черновик' : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Обновлен {new Date(doc.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <span className={`
-                    px-2 py-1 rounded-full text-xs
-                    ${doc.status === DocumentStatus.APPROVED ? 'bg-green-100 text-green-800' : ''}
-                    ${doc.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' : ''}
-                    ${doc.status === DocumentStatus.REJECTED ? 'bg-red-100 text-red-800' : ''}
-                    ${doc.status === DocumentStatus.DRAFT ? 'bg-gray-100 text-gray-800' : ''}
-                  `}>
-                    {doc.status === DocumentStatus.APPROVED && 'Утвержден'}
-                    {doc.status === DocumentStatus.PENDING && 'На согласовании'}
-                    {doc.status === DocumentStatus.REJECTED && 'Отклонен'}
-                    {doc.status === DocumentStatus.DRAFT && 'Черновик'}
-                    {doc.status === DocumentStatus.RETURNED && 'Возвращен'}
-                  </span>
-                  <Button variant="ghost" size="sm" asChild className="ml-2">
-                    <Link href={`/documents/${doc.id}`}>Просмотр</Link>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/documents/${doc.id}`}>
+                      Открыть
+                    </Link>
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm">У вас пока нет документов</p>
+              <Button className="mt-4" asChild>
+                <Link href="/documents/create">
+                  Создать первый документ
+                </Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+        {userDocuments.length > 0 && (
+          <CardFooter>
+            <Button asChild variant="ghost" className="w-full">
+              <Link href="/documents">
+                <span>Все мои документы</span>
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardFooter>
+        )}
+      </Card>
     </div>
   );
 } 

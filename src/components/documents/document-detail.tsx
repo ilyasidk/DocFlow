@@ -25,25 +25,35 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface DocumentDetailProps {
   document: Document;
   onUpdateStatus?: (documentId: string, stepId: string, newStatus: DocumentStatus, comment?: string) => void;
+  onAddComment?: (documentId: string, text: string) => void;
 }
 
-export default function DocumentDetail({ document, onUpdateStatus }: DocumentDetailProps) {
+export default function DocumentDetail({ document, onUpdateStatus, onAddComment }: DocumentDetailProps) {
   const { user } = useAuth();
   const [comment, setComment] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  const [formattedCreatedDate, setFormattedCreatedDate] = useState('');
+  const [formattedUpdatedDate, setFormattedUpdatedDate] = useState('');
+
+  // Fix hydration mismatch with dates by setting formatted dates client-side only
+  useEffect(() => {
+    setFormattedCreatedDate(new Date(document.createdAt).toLocaleDateString());
+    setFormattedUpdatedDate(new Date(document.updatedAt).toLocaleDateString());
+  }, [document.createdAt, document.updatedAt]);
 
   if (!user) return null;
 
   // Check if current user is assigned to the current step
   const currentStep = document.approvalSteps.find(step => step.position === document.currentStep);
-  const isCurrentApprover = currentStep?.assignedTo?.id === user.id;
+  // Fix: Check if user is in the array of approvers
+  const isCurrentApprover = currentStep?.assignedTo?.some(assignedUser => assignedUser.id === user.id);
   
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -75,6 +85,14 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
     if (currentStep && onUpdateStatus) {
       onUpdateStatus(document.id, currentStep.id, DocumentStatus.RETURNED, returnReason);
       setReturnReason('');
+    }
+  };
+
+  // Handle adding a comment
+  const handleAddComment = () => {
+    if (comment.trim() && onAddComment) {
+      onAddComment(document.id, comment);
+      setComment('');
     }
   };
 
@@ -111,7 +129,7 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
               {document.createdBy.name}
             </span>
             <span className="mx-2">•</span>
-            <span>{new Date(document.createdAt).toLocaleDateString()}</span>
+            <span>{formattedCreatedDate}</span>
             <span className="mx-2">•</span>
             <span className={`
               px-2 py-0.5 rounded-full text-xs
@@ -119,6 +137,7 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
               ${document.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' : ''}
               ${document.status === DocumentStatus.REJECTED ? 'bg-red-100 text-red-800' : ''}
               ${document.status === DocumentStatus.DRAFT ? 'bg-gray-100 text-gray-800' : ''}
+              ${document.status === DocumentStatus.RETURNED ? 'bg-orange-100 text-orange-800' : ''}
             `}>
               {getStatusText(document.status)}
             </span>
@@ -241,11 +260,11 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Создан:</span>
-                  <span className="text-sm font-medium">{new Date(document.createdAt).toLocaleString()}</span>
+                  <span className="text-sm font-medium">{formattedCreatedDate}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Обновлен:</span>
-                  <span className="text-sm font-medium">{new Date(document.updatedAt).toLocaleString()}</span>
+                  <span className="text-sm font-medium">{formattedUpdatedDate}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Имя файла:</span>
@@ -300,23 +319,25 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
                     </div>
                     
                     <div className="flex-1">
-                      <div className="flex items-center">
-                        <div className="mr-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={step.assignedTo?.avatar} alt={step.assignedTo?.name} />
-                            <AvatarFallback>{step.assignedTo ? getInitials(step.assignedTo.name) : '?'}</AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {step.assignedTo?.name || `${step.role} (${step.department})`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {step.status === DocumentStatus.APPROVED && step.approvedAt && `Утверждено: ${new Date(step.approvedAt).toLocaleDateString()}`}
-                            {step.status === DocumentStatus.REJECTED && step.rejectedAt && `Отклонено: ${new Date(step.rejectedAt).toLocaleDateString()}`}
-                            {step.status === DocumentStatus.PENDING && 'Ожидает согласования'}
-                          </p>
-                        </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {step.assignedTo && step.assignedTo.map(approver => (
+                          <div key={approver.id} className="flex items-center">
+                            <div className="mr-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={approver.avatar} alt={approver.name} />
+                                <AvatarFallback>{getInitials(approver.name)}</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{approver.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {step.approvers.find(a => a.userId === approver.id)?.status === DocumentStatus.APPROVED && 'Утверждено'}
+                                {step.approvers.find(a => a.userId === approver.id)?.status === DocumentStatus.REJECTED && 'Отклонено'}
+                                {step.approvers.find(a => a.userId === approver.id)?.status === DocumentStatus.PENDING && 'Ожидает'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                       
                       {step.comment && (
@@ -378,7 +399,7 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
-                <Button className="self-end" disabled={!comment.trim()}>
+                <Button className="self-end" disabled={!comment.trim()} onClick={handleAddComment}>
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Комментировать
                 </Button>
@@ -404,7 +425,7 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
                     <div>
                       <p className="text-sm font-medium">Документ создан</p>
                       <p className="text-xs text-muted-foreground">
-                        {document.createdBy.name} • {new Date(document.createdAt).toLocaleString()}
+                        {document.createdBy.name} • {formattedCreatedDate}
                       </p>
                     </div>
                   </div>
@@ -422,10 +443,12 @@ export default function DocumentDetail({ document, onUpdateStatus }: DocumentDet
                         </div>
                         <div>
                           <p className="text-sm font-medium">
-                            {step.status === DocumentStatus.APPROVED ? 'Утверждено' : 'Отклонено'} пользователем {step.assignedTo?.name}
+                            {step.status === DocumentStatus.APPROVED ? 'Утверждено' : 'Отклонено'} пользователями: 
+                            {step.assignedTo && step.assignedTo.map(user => ` ${user.name}`).join(', ')}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(step.approvedAt || step.rejectedAt || new Date()).toLocaleString()}
+                            {step.approvedAt && new Date(step.approvedAt).toLocaleDateString()}
+                            {step.rejectedAt && new Date(step.rejectedAt).toLocaleDateString()}
                           </p>
                           {step.comment && (
                             <p className="text-sm mt-1 p-2 bg-muted rounded-md">

@@ -1,7 +1,7 @@
 'use client';
 
 import { User, UserRole } from '@/types';
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { users, getUserByRole } from './mock-data';
 
 interface AuthContextType {
@@ -14,7 +14,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(users[0]); // Default to admin for demo
+  // Initialize with null to prevent hydration mismatch
+  const [user, setUser] = useState<User | null>(null);
+
+  // Set the initial user after component mounts on client
+  useEffect(() => {
+    setUser(users[0]); // Default to admin for demo
+  }, []);
 
   const switchRole = (role: UserRole) => {
     const newUser = getUserByRole(role);
