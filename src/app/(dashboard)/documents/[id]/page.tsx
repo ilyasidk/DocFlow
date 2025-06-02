@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { documents } from '@/lib/mock-data';
 import DocumentDetail from '@/components/documents/document-detail';
 import { Document, DocumentStatus } from '@/types';
 import { Button } from '@/components/ui/button';

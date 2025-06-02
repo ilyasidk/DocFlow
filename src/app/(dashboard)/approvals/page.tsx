@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import { getDocumentsAwaitingApproval } from '@/lib/mock-data';
 import DocumentList from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { UserRole } from '@/types';
@@ -21,9 +20,6 @@ export default function ApprovalsPage() {
       </div>
     );
   }
-
-  // Получить документы, ожидающие согласования текущим пользователем
-  const documentsToApprove = getDocumentsAwaitingApproval(user.id);
 
   return (
     <div className="space-y-6">

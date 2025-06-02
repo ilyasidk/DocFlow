@@ -1,0 +1,105 @@
+# Требования к переменным окружения (.env) и действиям пользователя для запуска бэкенда
+
+## Переменные окружения (добавить в .env):
+
+# MongoDB
+MONGODB_URI=
+MONGODB_DB_NAME=
+
+# Google Cloud Storage
+GCP_PROJECT_ID=
+GCP_CLIENT_EMAIL=
+GCP_PRIVATE_KEY=
+GCS_BUCKET_NAME=
+
+# JWT (для авторизации)
+JWT_SECRET=
+JWT_EXPIRES_IN=1d
+
+# Admin initial password (используется только при создании первого админа)
+ADMIN_INITIAL_PASSWORD=change-this-password-immediately
+
+# Прочее
+PORT=4000
+NODE_ENV=development
+
+---
+
+## Требования к пользователю:
+1. Создайте файл .env в папке backend и заполните переменные выше.
+2. Получите сервисный аккаунт Google Cloud с доступом к Storage и скопируйте client_email и private_key.
+3. Создайте bucket в Google Cloud Storage и укажите его имя в GCS_BUCKET_NAME.
+4. Убедитесь, что MongoDB доступна по адресу, указанному в MONGODB_URI.
+5. Установите все зависимости через npm install в папке backend:
+   ```
+   npm install express mongoose dotenv bcryptjs jsonwebtoken cors multer uuid @google-cloud/storage
+   npm install --save-dev @types/express @types/mongoose @types/bcryptjs @types/jsonwebtoken @types/cors @types/multer @types/uuid
+   ```
+6. Для запуска сервера используйте npm run dev или npm start.
+7. Если база MongoDB не запущена или переменные не заданы, сервер не стартует и выдаст ошибку в консоль.
+8. Не изменяйте структуру типов данных во фронте (src/types/index.ts) без согласования с бэкендом — это приведет к ошибкам при работе API.
+
+## Дополнительная информация:
+1. Система автоматически создаст пользователя-администратора при первом запуске, если он отсутствует в базе данных.
+2. Учетные данные администратора по умолчанию:
+   - Имя пользователя: admin
+   - Пароль: значение ADMIN_INITIAL_PASSWORD из .env (по умолчанию admin123)
+3. Рекомендуется сразу сменить пароль администратора после первого входа.
+4. Документы хранятся в Google Cloud Storage, убедитесь что у сервисного аккаунта есть достаточные права.
+5. Для загрузки документов API использует multer, лимит размера файла - 10 МБ.
+
+## API Endpoints:
+
+### Аутентификация
+- `POST /api/auth/login` - Авторизация пользователя
+  - Request: `{ username: string, password: string }`
+  - Response: `{ token: string, user: { id, username, role, email, name, department } }`
+
+### Пользователи
+- `GET /api/users` - Получение списка пользователей (требуется авторизация)
+- `POST /api/users` - Создание нового пользователя (только для admin)
+- `PUT /api/users/:id` - Обновление пользователя (только для admin)
+- `DELETE /api/users/:id` - Удаление пользователя (только для admin)
+
+### Документы
+- `GET /api/documents` - Получение списка документов с фильтрацией
+  - Query params: `status`, `type`, `department`, `createdBy`, `search`, `tags`, `page`, `limit`, `sortBy`, `sortDirection`
+  
+- `GET /api/documents/:id` - Получение детальной информации о документе
+  
+- `POST /api/documents` - Создание нового документа
+  - Content-Type: `multipart/form-data`
+  - Fields:
+    - `file`: Файл документа
+    - `title`: Название документа
+    - `description`: Описание (опционально)
+    - `type`: Тип документа (из enum DocumentType)
+    - `department`: Отдел
+    - `approvalSteps`: JSON массив шагов согласования (position, role, department, assignedTo)
+    - `tags`: Теги (опционально)
+    - `metadata`: Метаданные в формате JSON (опционально)
+    
+- `GET /api/documents/pending-approval` - Получение документов, ожидающих утверждения текущим пользователем
+  
+- `POST /api/documents/:id/submit` - Отправка документа на согласование
+  
+- `POST /api/documents/:id/approve` - Утверждение документа текущим пользователем
+  - Request: `{ comment?: string }`
+  
+- `POST /api/documents/:id/reject` - Отклонение документа текущим пользователем
+  - Request: `{ comment: string }` (обязательно указать причину)
+  
+- `POST /api/documents/:id/version` - Загрузка новой версии документа
+  - Content-Type: `multipart/form-data`
+  - Fields:
+    - `file`: Файл документа
+    - `comment`: Комментарий к версии (опционально)
+    
+- `POST /api/documents/:id/comment` - Добавление комментария к документу
+  - Request: `{ text: string }`
+  
+- `POST /api/documents/:id/archive` - Архивирование документа
+
+---
+
+# Этот файл будет пополняться по мере разработки. Следите за обновлениями! 

@@ -18,7 +18,7 @@ import { Menu, Bell, LogOut, UserCircle, Briefcase, FileText } from 'lucide-reac
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 
 export default function Header() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   if (!user) return null;
@@ -138,24 +138,6 @@ export default function Header() {
               <DropdownMenuItem>
                 <Briefcase className="mr-2 h-4 w-4" />
                 <span>Мой отдел</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              
-              {/* Demo User Switching */}
-              <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-                Демо: Сменить роль
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => switchRole(UserRole.ADMIN)}>
-                <span>Директор</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => switchRole(UserRole.DEPARTMENT_HEAD)}>
-                <span>Руководитель отдела</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => switchRole(UserRole.EMPLOYEE)}>
-                <span>Сотрудник</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => switchRole(UserRole.VIEWER)}>
-                <span>Наблюдатель</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               

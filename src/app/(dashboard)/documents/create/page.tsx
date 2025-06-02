@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentType, UserRole, DocumentStatus } from '@/types';
-import { users } from '@/lib/mock-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Dialog,
@@ -76,17 +75,8 @@ export default function CreateDocumentPage() {
   
   if (!user) return null;
   
-  // Get the available approvers based on role
-  const getAvailableApprovers = () => {
-    return users.filter(u => 
-      // Department heads and admins can approve
-      (u.role === UserRole.DEPARTMENT_HEAD || u.role === UserRole.ADMIN) && 
-      // Exclude current user
-      u.id !== user.id
-    );
-  };
-  
-  const availableApprovers = getAvailableApprovers();
+  // Заглушка для списка согласующих (пустой массив)
+  const availableApprovers: any[] = [];
   
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,7 +204,7 @@ export default function CreateDocumentPage() {
   
   // Возвращает список согласующих для этапа
   const getApproversForStep = (stepApprovers: string[]) => {
-    return stepApprovers.map(userId => users.find(u => u.id === userId)).filter(Boolean);
+    return stepApprovers.map(userId => ({ id: userId, name: '', role: UserRole.EMPLOYEE, department: '', avatar: '' }));
   };
   
   // Create document (simulate API call)
@@ -464,17 +454,17 @@ export default function CreateDocumentPage() {
                                 approver && (
                                   <div key={approver.id} className="flex items-center p-2 bg-muted rounded-md">
                                     <Avatar className="h-8 w-8 mr-2">
-                                      <AvatarImage src={approver.avatar} alt={approver.name} />
+                                      <AvatarImage src={approver.avatar || ''} alt={approver.name || ''} />
                                       <AvatarFallback>
-                                        {approver.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                        {approver.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
                                       </AvatarFallback>
                                     </Avatar>
                                     <div>
-                                      <p className="text-sm font-medium">{approver.name}</p>
+                                      <p className="text-sm font-medium">{approver.name || ''}</p>
                                       <p className="text-xs text-muted-foreground">
                                         {approver.role === UserRole.ADMIN ? 'Директор' : 
                                         approver.role === UserRole.DEPARTMENT_HEAD ? 'Руководитель отдела' : 
-                                        approver.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {approver.department}
+                                        approver.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {approver.department || ''}
                                       </p>
                                     </div>
                                   </div>
@@ -534,17 +524,17 @@ export default function CreateDocumentPage() {
                       >
                         <div className="flex items-center flex-1">
                           <Avatar className="h-8 w-8 mr-2">
-                            <AvatarImage src={u.avatar} alt={u.name} />
+                            <AvatarImage src={u.avatar || ''} alt={u.name || ''} />
                             <AvatarFallback>
-                              {u.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              {u.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
                             </AvatarFallback>
                           </Avatar>
                           <div className="text-left">
-                            <p className="text-sm font-medium">{u.name}</p>
+                            <p className="text-sm font-medium">{u.name || ''}</p>
                             <p className="text-xs text-muted-foreground">
                               {u.role === UserRole.ADMIN ? 'Директор' : 
                               u.role === UserRole.DEPARTMENT_HEAD ? 'Руководитель отдела' : 
-                              u.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {u.department}
+                              u.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {u.department || ''}
                             </p>
                           </div>
                         </div>
@@ -630,9 +620,9 @@ export default function CreateDocumentPage() {
                                 approver && (
                                   <div key={approver.id} className="flex items-center">
                                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs mr-2">
-                                      {approver.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                      {approver.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
                                     </div>
-                                    <p className="text-sm">{approver.name} ({approver.department})</p>
+                                    <p className="text-sm">{approver.name || ''} ({approver.department || ''}</p>
                                   </div>
                                 )
                               ))}

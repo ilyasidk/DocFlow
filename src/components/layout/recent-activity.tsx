@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Notification, Document, DocumentStatus } from '@/types';
-import { getNotificationsForUser, documents } from '@/lib/mock-data';
 import { Clock, CheckCircle, XCircle, FileText, CornerDownLeft, Bell } from 'lucide-react';
 
 interface Activity {

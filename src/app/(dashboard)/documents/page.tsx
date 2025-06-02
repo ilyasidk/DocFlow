@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import { documents, getDocumentsByUser } from '@/lib/mock-data';
 import DocumentList from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -12,13 +11,6 @@ export default function DocumentsPage() {
   const { user } = useAuth();
   
   if (!user) return null;
-
-  // Get documents based on user role
-  const displayDocuments = user.role === UserRole.ADMIN 
-    ? documents 
-    : user.role === UserRole.DEPARTMENT_HEAD 
-      ? documents.filter(doc => doc.createdBy.department === user.department)
-      : getDocumentsByUser(user.id);
 
   return (
     <div className="space-y-6">
@@ -41,7 +33,7 @@ export default function DocumentsPage() {
         </Button>
       </div>
       
-      <DocumentList documents={displayDocuments} />
+      <DocumentList documents={[]} />
     </div>
   );
 } 

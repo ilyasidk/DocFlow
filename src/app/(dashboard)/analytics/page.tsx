@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserRole, DocumentStatus, DocumentType } from '@/types';
-import { documents } from '@/lib/mock-data';
 import {
   PieChart,
   BarChart,

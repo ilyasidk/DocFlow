@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText } from 'lucide-react';
-import { UserRole } from '@/types';
-import { users } from '@/lib/mock-data';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -35,14 +33,6 @@ export default function LoginPage() {
       setError('Произошла ошибка при входе');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDemoLogin = (role: UserRole) => {
-    const user = users.find(u => u.role === role);
-    if (user) {
-      setEmail(user.email);
-      setPassword('password'); // Demo password
     }
   };
 
@@ -90,36 +80,6 @@ export default function LoginPage() {
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading ? 'Вход...' : 'Войти'}
             </Button>
-            
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Демо-доступ:</p>
-              <div className="flex flex-wrap justify-center gap-2 mt-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleDemoLogin(UserRole.ADMIN)}
-                >
-                  Войти как Директор
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleDemoLogin(UserRole.DEPARTMENT_HEAD)}
-                >
-                  Войти как Руководитель
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleDemoLogin(UserRole.EMPLOYEE)}
-                >
-                  Войти как Сотрудник
-                </Button>
-              </div>
-            </div>
           </CardFooter>
         </form>
       </Card>

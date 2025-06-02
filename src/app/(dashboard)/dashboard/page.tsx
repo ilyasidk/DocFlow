@@ -24,11 +24,6 @@ import {
   AlertCircle,
   ChevronRight
 } from 'lucide-react';
-import { 
-  documents, 
-  getDocumentsByUser, 
-  getDocumentsAwaitingApproval 
-} from '@/lib/mock-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RecentActivity from '@/components/layout/recent-activity';
 
@@ -36,21 +31,6 @@ export default function DashboardPage() {
   const { user } = useAuth();
 
   if (!user) return null;
-
-  // Получаем документы для текущего пользователя
-  const userDocuments = documents.filter(doc => doc.createdBy.id === user.id);
-  const userDrafts = userDocuments.filter(doc => doc.status === DocumentStatus.DRAFT);
-  const userPending = userDocuments.filter(doc => doc.status === DocumentStatus.PENDING);
-  const userRejected = userDocuments.filter(doc => doc.status === DocumentStatus.REJECTED);
-  
-  // Документы, ожидающие согласования
-  const documentsToApprove = getDocumentsAwaitingApproval(user.id);
-  
-  // Count document statuses
-  const allDocumentsCount = documents.length;
-  const pendingCount = documents.filter(doc => doc.status === DocumentStatus.PENDING).length;
-  const approvedCount = documents.filter(doc => doc.status === DocumentStatus.APPROVED).length;
-  const rejectedCount = documents.filter(doc => doc.status === DocumentStatus.REJECTED).length;
 
   // Get initials for avatar
   const getInitials = (name: string) => {
