@@ -1,4 +1,4 @@
-import { DocumentModel, IDocument, DocumentStatus, DocumentType, IApprovalStep } from '../models/Document.js';
+import { DocumentModel, IDocument, DocumentStatus, DocumentType, IApprovalStep, IComment } from '../models/Document.js';
 import { UserRole, Department, IUser } from '../models/User.js';
 import { Types } from 'mongoose';
 
@@ -48,13 +48,13 @@ export class DocumentService {
       type: documentData.type,
       status: DocumentStatus.DRAFT,
       department: documentData.department,
-      createdBy: user._id,
+      createdBy: user._id as Types.ObjectId,
       currentVersion: 1,
       versions: [{
         version: 1,
         fileUrl,
         createdAt: new Date(),
-        createdBy: user._id
+        createdBy: user._id as Types.ObjectId
       }],
       approvals: [],
       tags: documentData.tags,
@@ -77,7 +77,7 @@ export class DocumentService {
     }
 
     // Проверка, что пользователь является автором документа
-    if (document.createdBy.toString() !== user._id.toString()) {
+    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString()) {
       throw new Error('Только автор документа может отправить его на согласование');
     }
 
@@ -119,7 +119,7 @@ export class DocumentService {
     // Проверяем, может ли пользователь согласовать на этом шаге
     const canApprove = 
       // Если пользователь назначен напрямую
-      (currentStep.assignedTo && currentStep.assignedTo.some(id => id.toString() === user._id.toString())) ||
+      (currentStep.assignedTo && currentStep.assignedTo.some(id => id.toString() === (user._id as Types.ObjectId).toString())) ||
       // Или по роли и департаменту
       (currentStep.role === user.role && 
         (!currentStep.department || currentStep.department === user.department));
@@ -130,7 +130,7 @@ export class DocumentService {
 
     // Проверяем, не согласовывал ли пользователь уже на этом шаге
     const alreadyApproved = currentStep.approvers.some(
-      approver => approver.userId.toString() === user._id.toString()
+      approver => approver.userId.toString() === (user._id as Types.ObjectId).toString()
     );
 
     if (alreadyApproved) {
@@ -139,7 +139,7 @@ export class DocumentService {
 
     // Добавляем пользователя в список согласовавших
     currentStep.approvers.push({
-      userId: user._id,
+      userId: user._id as Types.ObjectId,
       status: DocumentStatus.APPROVED,
       comment,
       approvedAt: new Date()
@@ -189,7 +189,7 @@ export class DocumentService {
 
     // Проверяем, может ли пользователь отклонить на этом шаге
     const canReject = 
-      (currentStep.assignedTo && currentStep.assignedTo.some(id => id.toString() === user._id.toString())) ||
+      (currentStep.assignedTo && currentStep.assignedTo.some(id => id.toString() === (user._id as Types.ObjectId).toString())) ||
       (currentStep.role === user.role && 
         (!currentStep.department || currentStep.department === user.department));
 
@@ -199,7 +199,7 @@ export class DocumentService {
 
     // Добавляем отклонение пользователя
     currentStep.approvers.push({
-      userId: user._id,
+      userId: user._id as Types.ObjectId,
       status: DocumentStatus.REJECTED,
       comment,
       rejectedAt: new Date()
@@ -230,8 +230,10 @@ export class DocumentService {
     }
 
     // Только автор или администратор может добавлять новые версии
-    if (document.createdBy.toString() !== user._id.toString() && user.role !== UserRole.ADMIN) {
-      throw new Error('Только автор документа или администратор может добавлять новые версии');
+    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && 
+        user.role !== UserRole.ADMIN && 
+        user.role !== UserRole.DIRECTOR) {
+      throw new Error('Только автор документа, администратор или директор может добавлять новые версии');
     }
 
     // Если документ был отклонен, переводим его обратно в черновик
@@ -257,7 +259,7 @@ export class DocumentService {
       version: document.currentVersion,
       fileUrl,
       createdAt: new Date(),
-      createdBy: user._id,
+      createdBy: user._id as Types.ObjectId,
       comment
     });
 
@@ -362,7 +364,7 @@ export class DocumentService {
       status: DocumentStatus.PENDING_REVIEW,
       $or: [
         // Пользователь назначен напрямую
-        { 'approvalSteps.position': { $eq: { $literal: '$currentStep' } }, 'approvalSteps.assignedTo': user._id },
+        { 'approvalSteps.position': { $eq: { $literal: '$currentStep' } }, 'approvalSteps.assignedTo': user._id as Types.ObjectId },
         // Или по роли и департаменту
         {
           'approvalSteps.position': { $eq: { $literal: '$currentStep' } },
@@ -374,7 +376,7 @@ export class DocumentService {
         }
       ],
       // Исключаем документы, где пользователь уже выполнил действие
-      'approvalSteps.approvers.userId': { $ne: user._id }
+      'approvalSteps.approvers.userId': { $ne: user._id as Types.ObjectId }
     };
 
     const [documents, total] = await Promise.all([
@@ -405,13 +407,13 @@ export class DocumentService {
 
     // Initialize comments array if it doesn't exist
     if (!document.comments) {
-      document.comments = [];
+      document.comments = [] as any;
     }
 
     // Add the new comment
     const comment = {
       text,
-      createdBy: user._id,
+      createdBy: user._id as Types.ObjectId,
       createdAt: new Date(),
       documentId: new Types.ObjectId(documentId)
     };
@@ -432,9 +434,11 @@ export class DocumentService {
       throw new Error('Документ не найден');
     }
 
-    // Только автор или админ может архивировать документ
-    if (document.createdBy.toString() !== user._id.toString() && user.role !== UserRole.ADMIN) {
-      throw new Error('Только автор документа или администратор может архивировать документ');
+    // Только автор, администратор или директор может архивировать документ
+    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && 
+        user.role !== UserRole.ADMIN && 
+        user.role !== UserRole.DIRECTOR) {
+      throw new Error('Только автор документа, администратор или директор может архивировать документ');
     }
 
     // Нельзя архивировать документ, который находится на согласовании

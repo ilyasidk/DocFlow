@@ -1,18 +1,44 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import DocumentList from '@/components/documents/document-list';
+import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
-import { UserRole } from '@/types';
+import { UserRole, DocumentStatus } from '@/types';
 import { Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
+  const [documentsToApprove, setDocumentsToApprove] = useState([]);
+  
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchDocumentsToApprove = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await fetch('/api/documents/pending-approvals', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setDocumentsToApprove(data.documents || []);
+        }
+      } catch (error) {
+        console.error('Error fetching documents to approve:', error);
+      }
+    };
+    
+    fetchDocumentsToApprove();
+  }, [user]);
   
   if (!user) return null;
 
   // Проверим, имеет ли пользователь доступ к этой странице
-  if (user.role !== UserRole.ADMIN && user.role !== UserRole.DEPARTMENT_HEAD) {
+  if (user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR && user.role !== UserRole.DEPARTMENT_HEAD) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <h2 className="text-xl font-semibold">Доступ запрещен</h2>
@@ -46,7 +72,7 @@ export default function ApprovalsPage() {
           </p>
         </div>
       ) : (
-        <DocumentList documents={documentsToApprove} />
+        <DocumentList initialDocuments={documentsToApprove} title="Документы на согласование" status={DocumentStatus.PENDING} />
       )}
     </div>
   );

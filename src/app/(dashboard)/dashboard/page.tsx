@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { UserRole, DocumentStatus } from '@/types';
+import { UserRole, DocumentStatus, Document } from '@/types';
 import { 
   Card, 
   CardContent, 
@@ -26,11 +27,52 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RecentActivity from '@/components/layout/recent-activity';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (user) {
+      if (user.role === UserRole.ADMIN) router.push('/users');
+      if (user.role === UserRole.DIRECTOR) router.push('/analytics');
+    }
+  }, [user, router]);
+
+  // Fetch document statistics for admin
+  const [stats, setStats] = useState({ total: 0, approved: 0, rejected: 0, pending: 0 });
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL;
+    fetch(`${base}/api/analytics/documents/stats`, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+    })
+      .then(res => res.json())
+      .then(data => setStats({
+        total: data.total,
+        approved: data.approved,
+        rejected: data.rejected,
+        pending: data.pending,
+      }))
+      .catch(err => console.error('Failed to fetch document stats:', err));
+  }, []);
+
+  const allDocumentsCount = stats.total;
+  const pendingCount = stats.pending;
+  const approvedCount = stats.approved;
+  const rejectedCount = stats.rejected;
+
+  // Placeholder arrays for future data fetching
+  const documents: Document[] = [];
+  const documentsToApprove: Document[] = [];
+  const userDocuments: Document[] = [];
+  const userPending: Document[] = [];
 
   if (!user) return null;
+  if (user.role === UserRole.ADMIN || user.role === UserRole.DIRECTOR) return null;
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -58,67 +100,7 @@ export default function DashboardPage() {
         </Button>
       </div>
       
-      {/* Role-specific stats */}
-      {user.role === UserRole.ADMIN && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Всего документов
-              </CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{allDocumentsCount}</div>
-              <p className="text-xs text-muted-foreground">
-                Все документы в системе
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Ожидают согласования
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingCount}</div>
-              <p className="text-xs text-muted-foreground">
-                В процессе согласования
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Утвержденные документы
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{approvedCount}</div>
-              <p className="text-xs text-muted-foreground">
-                Успешно завершены
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Отклоненные документы
-              </CardTitle>
-              <XCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{rejectedCount}</div>
-              <p className="text-xs text-muted-foreground">
-                Требуют доработки
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Admin stats removed. Admin users are redirected to /users */}
       
       {/* Department Head Stats */}
       {user.role === UserRole.DEPARTMENT_HEAD && (

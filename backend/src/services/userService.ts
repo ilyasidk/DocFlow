@@ -3,14 +3,19 @@ import { Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export class UserService {
-  // Получить всех пользователей определенной роли
+  // Получить всех пользователей, если админ, или только своей роли для других
   static async getUsersByRole(role: UserRole): Promise<IUser[]> {
+    if (role === UserRole.ADMIN || role === UserRole.DIRECTOR) {
+      // Admin and Director get all users
+      return UserModel.find();
+    }
+    // Others only get users of their own role
     return UserModel.find({ role });
   }
 
-  // Добавить пользователя (только если инициатор admin)
+  // Добавить пользователя (только если инициатор admin или director)
   static async addUser(initiator: IUser, userData: { username: string; password: string; name: string; email: string; role: UserRole; department: Department; avatar?: string }): Promise<IUser> {
-    if (initiator.role !== UserRole.ADMIN) {
+    if (initiator.role !== UserRole.ADMIN && initiator.role !== UserRole.DIRECTOR) {
       throw new Error('Нет прав на добавление пользователей');
     }
     const passwordHash = await bcrypt.hash(userData.password, 10);
@@ -20,17 +25,17 @@ export class UserService {
     });
   }
 
-  // Удалить пользователя (только если инициатор admin)
+  // Удалить пользователя (только если инициатор admin или director)
   static async deleteUser(initiator: IUser, userId: string): Promise<void> {
-    if (initiator.role !== UserRole.ADMIN) {
+    if (initiator.role !== UserRole.ADMIN && initiator.role !== UserRole.DIRECTOR) {
       throw new Error('Нет прав на удаление пользователей');
     }
     await UserModel.findByIdAndDelete(userId);
   }
 
-  // Изменить роль, username или пароль пользователя (только если инициатор admin)
+  // Изменить роль, username или пароль пользователя (только если инициатор admin или director)
   static async updateUser(initiator: IUser, userId: string, update: { role?: UserRole; username?: string; password?: string }): Promise<IUser | null> {
-    if (initiator.role !== UserRole.ADMIN) {
+    if (initiator.role !== UserRole.ADMIN && initiator.role !== UserRole.DIRECTOR) {
       throw new Error('Нет прав на изменение пользователя');
     }
     const user = await UserModel.findById(userId);

@@ -1,3 +1,12 @@
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Load environment variables from project root .env
+dotenv.config({ path: resolve(__dirname, '../../../.env') });
+
 import mongoose from 'mongoose';
 import Joi from 'joi';
 

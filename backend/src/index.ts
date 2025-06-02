@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import path from 'path';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
 import { seedAdminUser } from './config/seed.js';
@@ -9,8 +10,8 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 // @ts-ignore
 import cors from 'cors';
 
-// Загрузка переменных окружения
-dotenv.config();
+// Load environment variables from project root .env
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 4000;

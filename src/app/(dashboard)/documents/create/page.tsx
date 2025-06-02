@@ -207,25 +207,74 @@ export default function CreateDocumentPage() {
     return stepApprovers.map(userId => ({ id: userId, name: '', role: UserRole.EMPLOYEE, department: '', avatar: '' }));
   };
   
-  // Create document (simulate API call)
-  const createDocument = () => {
-    // Here we would make an API call to create the document
-    console.log('Creating document:', {
-      title,
-      type,
-      file: file?.name,
-      approvalSteps: approvalSteps.map(step => {
-        const stepApprovers = getApproversForStep(step.approvers);
+  // Create document (using API call)
+  const createDocument = async () => {
+    try {
+      if (!title || !type || !file) {
+        console.error('Missing required fields');
+        return;
+      }
+
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found. Please login again.');
+        router.push('/login');
+        return;
+      }
+
+      // Create FormData object
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title);
+      formData.append('type', type);
+      
+      // Add description if applicable
+      formData.append('description', 'Document created via web interface');
+      
+      // Add the user's department
+      formData.append('department', user?.department || '');
+      
+      // Add current date
+      const currentDate = new Date().toISOString();
+      formData.append('createdAt', currentDate);
+      
+      // Add approval steps if any
+      if (approvalSteps.length > 0) {
+        // Convert approval steps to proper format
+        const formattedSteps = approvalSteps.map(step => {
         return {
           position: step.position,
-          approvers: stepApprovers.map(u => u?.name),
-          allRequired: step.allApproversRequired
-        };
-      })
-    });
+            assignedTo: step.approvers,
+            allApproversRequired: step.allApproversRequired
+          };
+        });
+        
+        formData.append('approvalSteps', JSON.stringify(formattedSteps));
+      }
+      
+      // Make API call to create document
+      const response = await fetch('/api/documents', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error creating document:', errorData);
+        return;
+      }
+      
+      console.log('Document created successfully');
     
     // Navigate to documents page after creation
     router.push('/documents');
+    } catch (error) {
+      console.error('Error creating document:', error);
+    }
   };
   
   // Render specific step

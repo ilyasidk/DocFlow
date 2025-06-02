@@ -1,190 +1,245 @@
 'use client';
 
-import { Document, DocumentStatus } from '@/types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { 
-  CheckCircle, 
-  Clock, 
-  FileText, 
-  XCircle, 
-  Edit,
-  ExternalLink, 
-  File
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth-context';
+import { Document, DocumentStatus, UserRole } from '@/types';
 import Link from 'next/link';
-import { useState } from 'react';
+import { Eye, FileText, File, FileCheck, FileX, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DocumentListProps {
-  documents: Document[];
-  showActions?: boolean;
+  initialDocuments?: Document[];
+  status?: DocumentStatus;
+  title?: string;
+  limit?: number;
 }
 
-export default function DocumentList({ documents, showActions = true }: DocumentListProps) {
-  const [filter, setFilter] = useState<DocumentStatus | 'all'>('all');
+export function DocumentList({ 
+  initialDocuments = [], 
+  status, 
+  title = 'Документы', 
+  limit = 10 
+}: DocumentListProps) {
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const [loading, setLoading] = useState(initialDocuments.length === 0);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredDocuments = filter === 'all' 
-    ? documents 
-    : documents.filter(doc => doc.status === filter);
+  useEffect(() => {
+    if (initialDocuments.length > 0) return;
 
-  // Get document status icon
+    const fetchDocuments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Authentication token not found. Please login again.');
+          return;
+        }
+        
+        // Construct query string
+        let queryString = `limit=${limit}`;
+        if (status) queryString += `&status=${status}`;
+        
+        const response = await fetch(`/api/documents?${queryString}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить документы');
+        }
+        
+        const data = await response.json();
+        
+        // Apply visibility filter on the client side
+        const visibleDocuments = filterVisibleDocuments(data.documents || []);
+        setDocuments(visibleDocuments);
+      } catch (err) {
+        setError((err as Error).message);
+        console.error('Error fetching documents:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDocuments();
+  }, [initialDocuments.length, status, limit]);
+
+  // Filter documents based on user role and involvement
+  const filterVisibleDocuments = (docs: Document[]): Document[] => {
+    if (!user) return [];
+    
+    return docs.filter(doc => {
+      // Document creator can always see their documents
+      if (doc.createdBy.id === user.id) return true;
+      
+      // Admin/Director can see all documents
+      if (user.role === UserRole.ADMIN || user.role === UserRole.DIRECTOR) return true;
+      
+      // Department head can see documents from their department
+      if (user.role === UserRole.DEPARTMENT_HEAD && doc.createdBy.department === user.department) return true;
+      
+      // Check if user is an approver in any approval step
+      const isApprover = doc.approvalSteps.some(step => 
+        step.assignedTo?.some(approver => approver.id === user.id) ||
+        step.approvers.some(approver => approver.userId === user.id)
+      );
+      
+      return isApprover;
+    });
+  };
+
+  // Get status icon based on document status
   const getStatusIcon = (status: DocumentStatus) => {
     switch (status) {
       case DocumentStatus.APPROVED:
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case DocumentStatus.PENDING:
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <FileCheck className="h-5 w-5 text-green-500" />;
       case DocumentStatus.REJECTED:
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case DocumentStatus.DRAFT:
-        return <Edit className="h-4 w-4 text-gray-500" />;
+        return <FileX className="h-5 w-5 text-red-500" />;
+      case DocumentStatus.PENDING:
+        return <Clock className="h-5 w-5 text-yellow-500" />;
       default:
-        return <FileText className="h-4 w-4" />;
+        return <File className="h-5 w-5 text-gray-500" />;
     }
   };
 
-  // Get document type icon
-  const getTypeIcon = (fileType: string) => {
-    if (fileType.includes('pdf')) {
-      return <File className="h-4 w-4 text-red-400" />;
-    }
-    if (fileType.includes('word') || fileType.includes('docx')) {
-      return <File className="h-4 w-4 text-blue-400" />;
-    }
-    if (fileType.includes('presentation') || fileType.includes('pptx')) {
-      return <File className="h-4 w-4 text-orange-400" />;
-    }
-    return <File className="h-4 w-4" />;
-  };
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <div className="flex items-center justify-center h-32">
+          <p>Загрузка документов...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Translate status to Russian
-  const getStatusText = (status: DocumentStatus) => {
-    switch (status) {
-      case DocumentStatus.APPROVED:
-        return 'Утвержден';
-      case DocumentStatus.PENDING:
-        return 'На согласовании';
-      case DocumentStatus.REJECTED:
-        return 'Отклонен';
-      case DocumentStatus.DRAFT:
-        return 'Черновик';
-      case DocumentStatus.RETURNED:
-        return 'Возвращен';
-      default:
-        return status;
-    }
-  };
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-red-500">
+              <p>Ошибка: {error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => window.location.reload()}
+              >
+                Повторить
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p>Документы не найдены</p>
+              <Link href="/documents/create">
+                <Button className="mt-4">
+                  Создать документ
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <Button 
-          variant={filter === 'all' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setFilter('all')}
-        >
-          Все
-        </Button>
-        <Button 
-          variant={filter === DocumentStatus.PENDING ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setFilter(DocumentStatus.PENDING)}
-          className="text-yellow-500"
-        >
-          <Clock className="h-4 w-4 mr-2" />
-          На согласовании
-        </Button>
-        <Button 
-          variant={filter === DocumentStatus.APPROVED ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setFilter(DocumentStatus.APPROVED)}
-          className="text-green-500"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Утвержденные
-        </Button>
-        <Button 
-          variant={filter === DocumentStatus.REJECTED ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setFilter(DocumentStatus.REJECTED)}
-          className="text-red-500"
-        >
-          <XCircle className="h-4 w-4 mr-2" />
-          Отклоненные
-        </Button>
-        <Button 
-          variant={filter === DocumentStatus.DRAFT ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setFilter(DocumentStatus.DRAFT)}
-          className="text-gray-500"
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Черновики
-        </Button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <Link href="/documents/create">
+          <Button>
+            Создать документ
+          </Button>
+        </Link>
       </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Документ</TableHead>
-              <TableHead>Создатель</TableHead>
-              <TableHead>Дата</TableHead>
-              <TableHead>Статус</TableHead>
-              <TableHead>Текущий этап</TableHead>
-              {showActions && <TableHead className="text-right">Действия</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredDocuments.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={showActions ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                  Документов не найдено
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredDocuments.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium flex items-center">
-                    {getTypeIcon(doc.fileType)}
-                    <span className="ml-2">{doc.title}</span>
-                  </TableCell>
-                  <TableCell>{doc.createdBy.name}</TableCell>
-                  <TableCell>{new Date(doc.updatedAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(doc.status)}
-                      <span>{getStatusText(doc.status)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {doc.approvalSteps.length > 0 ? 
-                      `Этап ${doc.currentStep} из ${doc.approvalSteps.length}` : 
-                      'Не отправлен'}
-                  </TableCell>
-                  {showActions && (
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" asChild>
-                        <Link href={`/documents/${doc.id}`}>
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Просмотр
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {documents.map((doc) => (
+          <Card key={doc.id}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg truncate">{doc.title}</CardTitle>
+              <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                <div className="flex items-center">
+                  {getStatusIcon(doc.status)}
+                  <span className="ml-1 capitalize">
+                    {doc.status === DocumentStatus.APPROVED ? 'Одобрен' : 
+                     doc.status === DocumentStatus.REJECTED ? 'Отклонен' : 
+                     doc.status === DocumentStatus.PENDING ? 'На согласовании' : 'Черновик'}
+                  </span>
+                </div>
+                <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Тип:</span>
+                  <span className="capitalize">
+                    {doc.type === 'contract' ? 'Договор' : 
+                     doc.type === 'report' ? 'Отчет' : 
+                     doc.type === 'invoice' ? 'Счет' : 
+                     doc.type === 'order' ? 'Приказ' : 
+                     doc.type === 'memo' ? 'Меморандум' : 'Другое'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Автор:</span>
+                  <span>{doc.createdBy.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Отдел:</span>
+                  <span>{doc.createdBy.department}</span>
+                </div>
+                {doc.currentStep > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Этап согласования:</span>
+                    <span>{doc.currentStep} из {doc.approvalSteps.length}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Link href={`/documents/${doc.id}`} className="w-full">
+                <Button variant="outline" className="w-full">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Просмотреть
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        ))}
       </div>
+      
+      {documents.length >= limit && (
+        <div className="flex justify-center pt-4">
+          <Link href="/documents">
+            <Button variant="outline">
+              Показать все документы
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 } 

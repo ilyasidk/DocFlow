@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import DocumentList from '@/components/documents/document-list';
+import { DocumentList } from '@/components/documents/document-list';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -33,7 +33,7 @@ export default function DocumentsPage() {
         </Button>
       </div>
       
-      <DocumentList documents={[]} />
+      <DocumentList />
     </div>
   );
 } 

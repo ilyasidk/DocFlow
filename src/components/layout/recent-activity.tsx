@@ -25,6 +25,9 @@ interface Activity {
 
 export default function RecentActivity() {
   const { user } = useAuth();
+  // TODO: Fetch actual notifications and documents from API
+  const notifications: Notification[] = [];
+  const documents: Document[] = [];
   const [activities, setActivities] = useState<Activity[]>([]);
 
   // Get initials for avatar
@@ -39,20 +42,17 @@ export default function RecentActivity() {
   useEffect(() => {
     if (!user) return;
     
-    // Получаем уведомления для текущего пользователя
-    const notifications = getNotificationsForUser(user.id);
-    
-    // Получаем документы, созданные или измененные пользователем
-    const userDocuments = documents.filter(doc => 
-      doc.createdBy.id === user.id || 
+    // Use stubbed notifications and documents until API is available
+    const userDocuments = documents.filter(
+      doc => doc.createdBy.id === user.id || 
       doc.approvalSteps.some(step => 
-        step.approvers.some(approver => approver.userId === user.id)
+          step.approvers.some(a => a.userId === user.id)
       )
     ).slice(0, 5);
     
     // Формируем список активностей
     const userActivities: Activity[] = [
-      // Преобразуем уведомления в активности
+      // Преобразуем уведомления в активности (stubbed)
       ...notifications.map(notif => ({
         id: notif.id,
         title: notif.title,

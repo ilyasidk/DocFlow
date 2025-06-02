@@ -3,17 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { UserRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, switchRole } = useAuth();
+  const { login, switchRole, user } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,12 +23,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
+      const loggedUser = await login(username, password);
       
-      if (success) {
+      if (loggedUser) {
+        if (loggedUser.role === UserRole.ADMIN) {
+          router.push('/users');
+        } else if (loggedUser.role === UserRole.DIRECTOR) {
+          router.push('/analytics');
+        } else {
         router.push('/dashboard');
+        }
       } else {
-        setError('Неверный email или пароль');
+        setError('Неверный логин или пароль');
       }
     } catch (err) {
       setError('Произошла ошибка при входе');
@@ -52,11 +59,11 @@ export default function LoginPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Input
-                id="email"
-                placeholder="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                placeholder="Логин"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>

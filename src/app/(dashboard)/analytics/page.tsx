@@ -30,8 +30,8 @@ export default function AnalyticsPage() {
 
   if (!user) return null;
 
-  // Проверяем доступ (только для админов)
-  if (user.role !== UserRole.ADMIN) {
+  // Проверяем доступ (для админов и директоров)
+  if (user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <h2 className="text-xl font-semibold">Доступ запрещен</h2>

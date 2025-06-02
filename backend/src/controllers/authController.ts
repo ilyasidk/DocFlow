@@ -7,7 +7,10 @@ export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
       const { username, password } = req.body;
-      const user = await UserModel.findOne({ username });
+      // Normalize username and perform case-insensitive lookup
+      const normalizedUsername = String(username).trim();
+      // @ts-ignore
+      const user = await UserModel.findOne({ username: new RegExp(`^${normalizedUsername}$`, 'i') });
       if (!user) return res.status(401).json({ error: 'Неверный логин или пароль' });
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (!isMatch) return res.status(401).json({ error: 'Неверный логин или пароль' });

@@ -3,12 +3,15 @@ import { UserService } from '../services/userService.js';
 import { UserRole } from '../models/User.js';
 
 export class UserController {
-  // Получить всех пользователей своей роли
+  // Получить всех пользователей (все для админа, только своей роли для остальных)
   static async getUsersByRole(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new Error('Нет доступа');
-      const { role } = req.user;
-      const users = await UserService.getUsersByRole(role);
+      const users = await UserService.getUsersByRole(req.user.role);
+      
+      // Log the number of users returned to help with debugging
+      console.log(`Retrieved ${users.length} users for role ${req.user.role}`);
+      
       res.json(users);
     } catch (err) {
       next(err);
