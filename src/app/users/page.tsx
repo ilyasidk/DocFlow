@@ -38,7 +38,7 @@ export default function UsersPage() {
   useEffect(() => {
     if (!mounted || !user) return;
     
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR) {
+    if (user.role !== UserRole.ADMIN) {
       router.push('/login');
       return;
     }

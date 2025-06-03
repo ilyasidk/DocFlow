@@ -75,6 +75,7 @@ export interface ApprovalStep {
 // Document type
 export interface Document {
   id: string;
+  _id?: string; // MongoDB ID format
   title: string;
   type: DocumentType;
   createdBy: User;

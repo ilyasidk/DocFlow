@@ -67,7 +67,8 @@ export default function DocumentDetail({ document, onUpdateStatus, onAddComment 
   // Handle approval
   const handleApprove = () => {
     if (currentStep && onUpdateStatus) {
-      onUpdateStatus(document.id, currentStep.id, DocumentStatus.APPROVED, comment);
+      const documentId = document._id || document.id;
+      onUpdateStatus(documentId, currentStep.id, DocumentStatus.APPROVED, comment);
       setComment('');
     }
   };
@@ -75,7 +76,8 @@ export default function DocumentDetail({ document, onUpdateStatus, onAddComment 
   // Handle rejection
   const handleReject = () => {
     if (currentStep && onUpdateStatus) {
-      onUpdateStatus(document.id, currentStep.id, DocumentStatus.REJECTED, rejectionReason);
+      const documentId = document._id || document.id;
+      onUpdateStatus(documentId, currentStep.id, DocumentStatus.REJECTED, rejectionReason);
       setRejectionReason('');
     }
   };
@@ -83,7 +85,8 @@ export default function DocumentDetail({ document, onUpdateStatus, onAddComment 
   // Handle return for revision
   const handleReturn = () => {
     if (currentStep && onUpdateStatus) {
-      onUpdateStatus(document.id, currentStep.id, DocumentStatus.RETURNED, returnReason);
+      const documentId = document._id || document.id;
+      onUpdateStatus(documentId, currentStep.id, DocumentStatus.RETURNED, returnReason);
       setReturnReason('');
     }
   };
@@ -91,7 +94,8 @@ export default function DocumentDetail({ document, onUpdateStatus, onAddComment 
   // Handle adding a comment
   const handleAddComment = () => {
     if (comment.trim() && onAddComment) {
-      onAddComment(document.id, comment);
+      const documentId = document._id || document.id;
+      onAddComment(documentId, comment);
       setComment('');
     }
   };

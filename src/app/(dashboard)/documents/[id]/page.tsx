@@ -12,14 +12,53 @@ export default function DocumentDetailPage() {
   const { id } = useParams();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      const doc = documents.find(d => d.id === id);
-      setDocument(doc || null);
-      setLoading(false);
-    }, 500);
+    const fetchDocument = async () => {
+      if (!id) {
+        setLoading(false);
+        setError('Document ID is missing.');
+        return;
+      }
+      try {
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Authentication token not found. Please login again.');
+          setLoading(false);
+          return;
+        }
+        
+        // Fetch document with authorization header
+        const response = await fetch(`/api/documents/${String(id)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('Документ не найден.');
+          } else {
+            throw new Error(`Failed to fetch document: ${response.statusText}`);
+          }
+          setDocument(null);
+        } else {
+          const data: Document = await response.json();
+          setDocument(data);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Error fetching document:', err);
+        setError((err as Error).message);
+        setDocument(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDocument();
   }, [id]);
   
   // Mock function to update document status
@@ -80,6 +119,21 @@ export default function DocumentDetailPage() {
             <div className="h-4 w-64 bg-slate-200 rounded"></div>
           </div>
         </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <h2 className="text-xl font-semibold">Ошибка загрузки документа</h2>
+        <p className="text-muted-foreground">{error}</p>
+        <Button variant="outline" asChild>
+          <Link href="/documents">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Вернуться к документам
+          </Link>
+        </Button>
       </div>
     );
   }

@@ -175,60 +175,70 @@ export function DocumentList({
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {documents.map((doc) => (
-          <Card key={doc.id}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg truncate">{doc.title}</CardTitle>
-              <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
-                <div className="flex items-center">
-                  {getStatusIcon(doc.status)}
-                  <span className="ml-1 capitalize">
-                    {doc.status === DocumentStatus.APPROVED ? 'Одобрен' : 
-                     doc.status === DocumentStatus.REJECTED ? 'Отклонен' : 
-                     doc.status === DocumentStatus.PENDING ? 'На согласовании' : 'Черновик'}
-                  </span>
-                </div>
-                <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Тип:</span>
-                  <span className="capitalize">
-                    {doc.type === 'contract' ? 'Договор' : 
-                     doc.type === 'report' ? 'Отчет' : 
-                     doc.type === 'invoice' ? 'Счет' : 
-                     doc.type === 'order' ? 'Приказ' : 
-                     doc.type === 'memo' ? 'Меморандум' : 'Другое'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Автор:</span>
-                  <span>{doc.createdBy.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Отдел:</span>
-                  <span>{doc.createdBy.department}</span>
-                </div>
-                {doc.currentStep > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Этап согласования:</span>
-                    <span>{doc.currentStep} из {doc.approvalSteps.length}</span>
+        {documents.map((doc, index) => {
+          // Handle both MongoDB _id and regular id formats
+          const documentId = doc._id || doc.id;
+          
+          if (!doc || typeof documentId === 'undefined') {
+            console.warn('Document missing ID at index:', index, doc);
+            return null;
+          }
+          
+          return (
+            <Card key={String(documentId)}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg truncate">{doc.title}</CardTitle>
+                <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                  <div className="flex items-center">
+                    {getStatusIcon(doc.status)}
+                    <span className="ml-1 capitalize">
+                      {doc.status === DocumentStatus.APPROVED ? 'Одобрен' : 
+                       doc.status === DocumentStatus.REJECTED ? 'Отклонен' : 
+                       doc.status === DocumentStatus.PENDING ? 'На согласовании' : 'Черновик'}
+                    </span>
                   </div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link href={`/documents/${doc.id}`} className="w-full">
-                <Button variant="outline" className="w-full">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Просмотреть
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
-        ))}
+                  <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Тип:</span>
+                    <span className="capitalize">
+                      {doc.type === 'contract' ? 'Договор' : 
+                       doc.type === 'report' ? 'Отчет' : 
+                       doc.type === 'invoice' ? 'Счет' : 
+                       doc.type === 'order' ? 'Приказ' : 
+                       doc.type === 'memo' ? 'Меморандум' : 'Другое'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Автор:</span>
+                    <span>{doc.createdBy.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Отдел:</span>
+                    <span>{doc.createdBy.department}</span>
+                  </div>
+                  {doc.currentStep > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Этап согласования:</span>
+                      <span>{doc.currentStep} из {doc.approvalSteps.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Link href={`/documents/${documentId}`} className="w-full">
+                  <Button variant="outline" className="w-full">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Просмотреть
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
       
       {documents.length >= limit && (

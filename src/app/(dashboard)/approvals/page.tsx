@@ -38,7 +38,7 @@ export default function ApprovalsPage() {
   if (!user) return null;
 
   // Проверим, имеет ли пользователь доступ к этой странице
-  if (user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR && user.role !== UserRole.DEPARTMENT_HEAD) {
+  if (user.role !== UserRole.ADMIN && user.role !== UserRole.DEPARTMENT_HEAD) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <h2 className="text-xl font-semibold">Доступ запрещен</h2>

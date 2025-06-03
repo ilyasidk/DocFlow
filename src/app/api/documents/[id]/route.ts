@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Environment variables for API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 // Helper function to get token from request
 function getTokenFromRequest(request: NextRequest): string | undefined {
@@ -20,7 +20,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    // In Next.js 13+, params should be accessed after ensuring they are fully resolved
+    const id = params.id;
     
     // Get auth token
     const token = getTokenFromRequest(request);

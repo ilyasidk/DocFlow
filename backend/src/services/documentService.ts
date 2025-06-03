@@ -8,33 +8,32 @@ export class DocumentService {
    */
   static async createDocument(
     user: IUser,
-    documentData: {
-      title: string;
-      description?: string;
-      type: DocumentType;
-      department: string;
-      approvalSteps: {
-        position: number;
-        role?: UserRole;
-        department?: Department;
-        assignedTo?: string[];
-      }[];
-      tags?: string[];
-      metadata?: Record<string, any>;
-      expiresAt?: Date;
-    },
+    documentData: any, // Changed to any to handle stringified approvalSteps
     fileUrl: string
   ): Promise<IDocument> {
+    let parsedApprovalSteps: any[] = [];
+    if (documentData.approvalSteps && typeof documentData.approvalSteps === 'string') {
+      try {
+        parsedApprovalSteps = JSON.parse(documentData.approvalSteps);
+      } catch (error) {
+        console.error('Error parsing approvalSteps JSON:', error);
+        // Optionally throw a more specific error or handle as an empty array
+        // For now, defaults to empty array if parsing fails
+      }
+    } else if (Array.isArray(documentData.approvalSteps)) {
+      parsedApprovalSteps = documentData.approvalSteps;
+    }
+
     // Преобразуем шаги согласования
-    const approvalSteps: IApprovalStep[] = documentData.approvalSteps.map(step => {
+    const approvalSteps: IApprovalStep[] = parsedApprovalSteps.map(step => {
       return {
         position: step.position,
         role: step.role,
         department: step.department,
-        assignedTo: step.assignedTo?.map(id => new Types.ObjectId(id)),
+        assignedTo: step.assignedTo?.map((id: string) => new Types.ObjectId(id)),
         approvers: [], // Будет заполнено позже
-        status: DocumentStatus.PENDING_REVIEW,
-        allApproversRequired: true
+        status: DocumentStatus.PENDING_REVIEW, // Assuming PENDING_REVIEW, adjust if needed
+        allApproversRequired: typeof step.allApproversRequired === 'boolean' ? step.allApproversRequired : true // Default to true
       };
     });
 
@@ -46,7 +45,7 @@ export class DocumentService {
       title: documentData.title,
       description: documentData.description,
       type: documentData.type,
-      status: DocumentStatus.DRAFT,
+      status: approvalSteps.length > 0 ? DocumentStatus.PENDING_REVIEW : DocumentStatus.DRAFT, // Set to DRAFT if no approval steps
       department: documentData.department,
       createdBy: user._id as Types.ObjectId,
       currentVersion: 1,
@@ -56,12 +55,13 @@ export class DocumentService {
         createdAt: new Date(),
         createdBy: user._id as Types.ObjectId
       }],
-      approvals: [],
+      // approvals: [], // This field might not be needed if approvalSteps covers it
       tags: documentData.tags,
       metadata: documentData.metadata,
       expiresAt: documentData.expiresAt,
-      currentStep: 0,
-      approvalSteps
+      currentStep: approvalSteps.length > 0 ? 1 : 0, // Start at step 1 if steps exist
+      approvalSteps, // Parsed and transformed steps
+      comments: []
     });
 
     return document;
@@ -168,7 +168,7 @@ export class DocumentService {
   /**
    * Отклоняет документ текущим пользователем
    */
-  static async rejectDocument(documentId: string, user: IUser, comment: string): Promise<IDocument> {
+  static async rejectDocument(documentId: string, user: IUser, commentText: string): Promise<IDocument> {
     const document = await DocumentModel.findById(documentId);
     if (!document) {
       throw new Error('Документ не найден');
@@ -201,14 +201,14 @@ export class DocumentService {
     currentStep.approvers.push({
       userId: user._id as Types.ObjectId,
       status: DocumentStatus.REJECTED,
-      comment,
+      comment: commentText,
       rejectedAt: new Date()
     });
 
     // Обновляем статус шага и документа
     currentStep.status = DocumentStatus.REJECTED;
     currentStep.rejectedAt = new Date();
-    currentStep.comment = comment;
+    currentStep.comment = commentText;
     document.status = DocumentStatus.REJECTED;
 
     await document.save();
@@ -229,10 +229,8 @@ export class DocumentService {
       throw new Error('Документ не найден');
     }
 
-    // Только автор или администратор может добавлять новые версии
-    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && 
-        user.role !== UserRole.ADMIN && 
-        user.role !== UserRole.DIRECTOR) {
+    // Только автор, администратор или директор может добавлять новые версии
+    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR) {
       throw new Error('Только автор документа, администратор или директор может добавлять новые версии');
     }
 
@@ -357,28 +355,58 @@ export class DocumentService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 10;
     const skip = (page - 1) * limit;
+    const userIdAsObjectId = user._id as Types.ObjectId;
 
     // Строим запрос для поиска документов, где текущий пользователь
     // может быть согласующим на текущем шаге
     const query = {
       status: DocumentStatus.PENDING_REVIEW,
-      $or: [
-        // Пользователь назначен напрямую
-        { 'approvalSteps.position': { $eq: { $literal: '$currentStep' } }, 'approvalSteps.assignedTo': user._id as Types.ObjectId },
-        // Или по роли и департаменту
-        {
-          'approvalSteps.position': { $eq: { $literal: '$currentStep' } },
-          'approvalSteps.role': user.role,
-          $or: [
-            { 'approvalSteps.department': { $exists: false } },
-            { 'approvalSteps.department': user.department }
-          ]
+      $expr: {
+        $let: {
+          vars: {
+            currentApprovalStepDetails: {
+              $arrayElemAt: [
+                {
+                  $filter: {
+                    input: "$approvalSteps",
+                    as: "step",
+                    cond: { $eq: ["$$step.position", "$currentStep"] }
+                  }
+                },
+                0
+              ]
+            }
+          },
+          in: {
+            $and: [
+              { $ne: ["$$currentApprovalStepDetails", null] },
+              {
+                $or: [
+                  { $in: [userIdAsObjectId, "$$currentApprovalStepDetails.assignedTo"] },
+                  {
+                    $and: [
+                      { $eq: ["$$currentApprovalStepDetails.role", user.role] },
+                      {
+                        $or: [
+                          { $not: ["$$currentApprovalStepDetails.department"] },
+                          { $eq: ["$$currentApprovalStepDetails.department", user.department] }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                $not: {
+                  $in: [userIdAsObjectId, "$$currentApprovalStepDetails.approvers.userId"]
+                }
+              }
+            ]
+          }
         }
-      ],
-      // Исключаем документы, где пользователь уже выполнил действие
-      'approvalSteps.approvers.userId': { $ne: user._id as Types.ObjectId }
+      }
     };
-
+    
     const [documents, total] = await Promise.all([
       DocumentModel.find(query)
         .sort({ createdAt: -1 })
@@ -405,21 +433,25 @@ export class DocumentService {
       throw new Error('Документ не найден');
     }
 
-    // Initialize comments array if it doesn't exist
-    if (!document.comments) {
-      document.comments = [] as any;
+    // Ensure document.comments is an array before pushing.
+    // Mongoose schemas with default: [] should handle this, but this is a safeguard.
+    if (!Array.isArray(document.comments)) {
+      document.comments = [] as any; // Initialize if not an array. Cast to any for Mongoose compatibility.
     }
 
-    // Add the new comment
-    const comment = {
+    const newCommentData = {
       text,
       createdBy: user._id as Types.ObjectId,
       createdAt: new Date(),
       documentId: new Types.ObjectId(documentId)
     };
-    
-    // @ts-ignore - Push comment to array
-    document.comments.push(comment);
+
+    // TypeScript might still complain here depending on IDocument definition for `comments`.
+    // If `document.comments` is strictly typed as `Types.DocumentArray<IComment>`, 
+    // pushing a plain object might require `document.comments.create(newCommentData)` 
+    // or a cast on `newCommentData` if the schema expects all IComment fields.
+    // However, `push` usually works for adding subdocuments from plain objects.
+    (document.comments as Types.DocumentArray<IComment>).push(newCommentData as any);
 
     await document.save();
     return document;
@@ -434,10 +466,8 @@ export class DocumentService {
       throw new Error('Документ не найден');
     }
 
-    // Только автор, администратор или директор может архивировать документ
-    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && 
-        user.role !== UserRole.ADMIN && 
-        user.role !== UserRole.DIRECTOR) {
+    // Только автор, админ или директор может архивировать документ
+    if (document.createdBy.toString() !== (user._id as Types.ObjectId).toString() && user.role !== UserRole.ADMIN && user.role !== UserRole.DIRECTOR) {
       throw new Error('Только автор документа, администратор или директор может архивировать документ');
     }
 

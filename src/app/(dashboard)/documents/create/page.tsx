@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { DocumentType, UserRole, DocumentStatus } from '@/types';
+import { DocumentType, UserRole, DocumentStatus, User, Department } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Dialog,
@@ -45,6 +45,24 @@ const translateDocType = (type: DocumentType): string => {
     case DocumentType.MEMO: return 'Меморандум';
     case DocumentType.OTHER: return 'Другое';
     default: return type;
+  }
+};
+
+// Helper function to safely get initials
+const getSafeInitials = (name?: string): string => {
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return '-'; // Return a dash or other placeholder for missing/invalid names
+  }
+  try {
+    return name
+      .split(' ')
+      .filter(part => part && part.length > 0)
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  } catch (e) {
+    console.error("Error generating initials:", name, e);
+    return '?'; // Fallback for any unexpected error
   }
 };
 
@@ -73,10 +91,44 @@ export default function CreateDocumentPage() {
   const [selectedApprovers, setSelectedApprovers] = useState<string[]>([]);
   const [requireAllApprovers, setRequireAllApprovers] = useState(true);
   
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUsers = async () => {
+      setUsersLoading(true);
+      setUsersError(null);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setUsersError('Требуется авторизация для загрузки пользователей.');
+          return;
+        }
+        const response = await fetch('/api/users', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить список пользователей');
+        }
+        const data: User[] = await response.json();
+        setAllUsers(data);
+      } catch (err: any) {
+        setUsersError(err.message || 'Ошибка при загрузке пользователей');
+        console.error("Error fetching users:", err);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    fetchUsers();
+  }, [user]);
+  
   if (!user) return null;
   
-  // Заглушка для списка согласующих (пустой массив)
-  const availableApprovers: any[] = [];
+  const availableApprovers = useMemo(() => {
+    return allUsers.filter(u => u.role !== UserRole.ADMIN);
+  }, [allUsers]);
   
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,16 +247,29 @@ export default function CreateDocumentPage() {
   
   // Переключает выбор согласующего
   const toggleApprover = (userId: string) => {
-    if (isApproverSelected(userId)) {
-      setSelectedApprovers(prev => prev.filter(id => id !== userId));
-    } else {
-      setSelectedApprovers(prev => [...prev, userId]);
-    }
+    setSelectedApprovers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId) 
+        : [...prev, userId]
+    );
   };
   
   // Возвращает список согласующих для этапа
-  const getApproversForStep = (stepApprovers: string[]) => {
-    return stepApprovers.map(userId => ({ id: userId, name: '', role: UserRole.EMPLOYEE, department: '', avatar: '' }));
+  const getApproversForStep = (stepApproverIds: string[]): User[] => {
+    return stepApproverIds.map(userId => {
+      const foundUser = allUsers.find(u => u.id === userId);
+      if (foundUser) {
+        return foundUser;
+      }
+      return {
+        id: userId,
+        name: 'Неизвестный пользователь',
+        email: 'unknown@example.com',
+        role: UserRole.EMPLOYEE,
+        department: Department.HR,
+        avatar: ''
+      } as User;
+    }).filter((userFound): userFound is User => Boolean(userFound));
   };
   
   // Create document (using API call)
@@ -414,7 +479,6 @@ export default function CreateDocumentPage() {
                 <CardDescription>Выберите, кто должен согласовать документ и в каком порядке</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Approval Steps */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-medium">
@@ -446,7 +510,7 @@ export default function CreateDocumentPage() {
                         const stepApprovers = getApproversForStep(approvalStep.approvers);
                         
                         return (
-                          <div key={approvalStep.id} className="border rounded-md p-4">
+                          <div key={`${approvalStep.id}-${index}`} className="border rounded-md p-4">
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex items-center">
                                 <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground mr-3">
@@ -499,13 +563,13 @@ export default function CreateDocumentPage() {
                             </div>
                             
                             <div className="space-y-2">
-                              {stepApprovers.map((approver) => (
+                              {stepApprovers.map((approver, approverIndex) => (
                                 approver && (
-                                  <div key={approver.id} className="flex items-center p-2 bg-muted rounded-md">
+                                  <div key={`${approver.id}-${approverIndex}`} className="flex items-center p-2 bg-muted rounded-md">
                                     <Avatar className="h-8 w-8 mr-2">
                                       <AvatarImage src={approver.avatar || ''} alt={approver.name || ''} />
                                       <AvatarFallback>
-                                        {approver.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
+                                        {getSafeInitials(approver.name)}
                                       </AvatarFallback>
                                     </Avatar>
                                     <div>
@@ -539,7 +603,6 @@ export default function CreateDocumentPage() {
               </CardFooter>
             </Card>
             
-            {/* Dialog for adding approvers */}
             <Dialog open={isAddingApprovers} onOpenChange={setIsAddingApprovers}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -550,7 +613,6 @@ export default function CreateDocumentPage() {
                     Выберите пользователей, которые будут согласовывать документ на этом этапе.
                   </DialogDescription>
                 </DialogHeader>
-                
                 <div className="space-y-4 py-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox 
@@ -562,39 +624,44 @@ export default function CreateDocumentPage() {
                   </div>
                   
                   <div className="max-h-60 overflow-y-auto space-y-2">
-                    {availableApprovers.map(u => (
-                      <div 
-                        key={u.id} 
-                        className={`
-                          flex items-center p-2 rounded-md cursor-pointer
-                          ${isApproverSelected(u.id) ? 'bg-primary/10' : 'hover:bg-muted'}
-                        `}
-                        onClick={() => toggleApprover(u.id)}
-                      >
-                        <div className="flex items-center flex-1">
-                          <Avatar className="h-8 w-8 mr-2">
-                            <AvatarImage src={u.avatar || ''} alt={u.name || ''} />
-                            <AvatarFallback>
-                              {u.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="text-left">
-                            <p className="text-sm font-medium">{u.name || ''}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {u.role === UserRole.ADMIN ? 'Директор' : 
-                              u.role === UserRole.DEPARTMENT_HEAD ? 'Руководитель отдела' : 
-                              u.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {u.department || ''}
-                            </p>
+                    {usersLoading && <p className="text-center text-muted-foreground">Загрузка пользователей...</p>}
+                    {usersError && <p className="text-center text-red-500">{usersError}</p>}
+                    {!usersLoading && !usersError && availableApprovers.map((u, index) => {
+                      const keyId = (typeof u.id === 'string' && u.id) ? u.id : `generated-key-${index}`;
+                      return (
+                        <div 
+                          key={`${keyId}-${index}`}
+                          className={`flex items-center p-2 rounded-md cursor-pointer ${isApproverSelected(u.id) ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                          onClick={() => toggleApprover(u.id)}
+                        >
+                          <div className="flex items-center flex-1">
+                            <Avatar className="h-8 w-8 mr-2">
+                              <AvatarImage src={u.avatar || ''} alt={u.name || ''} />
+                              <AvatarFallback>
+                                {getSafeInitials(u.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="text-left">
+                              <p className="text-sm font-medium">{u.name || ''}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {u.role === UserRole.ADMIN ? 'Директор' : 
+                                u.role === UserRole.DEPARTMENT_HEAD ? 'Руководитель отдела' : 
+                                u.role === UserRole.EMPLOYEE ? 'Сотрудник' : 'Наблюдатель'} • {u.department || ''}
+                              </p>
+                            </div>
                           </div>
+                          <Checkbox 
+                            checked={isApproverSelected(u.id)} 
+                            onCheckedChange={() => toggleApprover(u.id)} 
+                            className="ml-2" 
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
-                        <Checkbox 
-                          checked={isApproverSelected(u.id)} 
-                          onCheckedChange={() => toggleApprover(u.id)}
-                          className="ml-2"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {!usersLoading && !usersError && availableApprovers.length === 0 && (
+                      <p className="text-center text-muted-foreground">Нет доступных пользователей для согласования.</p>
+                    )}
                   </div>
                 </div>
                 
@@ -651,27 +718,25 @@ export default function CreateDocumentPage() {
                     <p className="text-sm">Согласующие не выбраны (документ будет сохранен как черновик)</p>
                   ) : (
                     <div className="space-y-4">
-                      {approvalSteps.map((approvalStep) => {
+                      {approvalSteps.map((approvalStep, index) => {
                         const stepApprovers = getApproversForStep(approvalStep.approvers);
                         
                         return (
-                          <div key={approvalStep.id} className="border rounded-md p-3">
+                          <div key={`${approvalStep.id}-${index}`} className="border rounded-md p-3">
                             <h4 className="text-sm font-medium mb-2">
                               Этап {approvalStep.position}
                               <span className="text-xs text-muted-foreground ml-2">
-                                ({approvalStep.allApproversRequired 
-                                  ? 'Требуется согласование всех' 
-                                  : 'Достаточно одного согласующего'})
+                                ({approvalStep.allApproversRequired ? 'Требуется согласование всех' : 'Достаточно одного согласующего'})
                               </span>
                             </h4>
                             <div className="space-y-1">
-                              {stepApprovers.map((approver) => (
+                              {stepApprovers.map((approver, approverIndex) => (
                                 approver && (
-                                  <div key={approver.id} className="flex items-center">
+                                  <div key={`${approver.id}-${approverIndex}`} className="flex items-center">
                                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs mr-2">
-                                      {approver.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || ''}
+                                      {getSafeInitials(approver.name)}
                                     </div>
-                                    <p className="text-sm">{approver.name || ''} ({approver.department || ''}</p>
+                                    <p className="text-sm">{approver.name || ''} ({approver.department || ''})</p>
                                   </div>
                                 )
                               ))}
@@ -686,10 +751,7 @@ export default function CreateDocumentPage() {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Статус</h3>
                   <div className="flex items-center">
-                    <span className={`
-                      px-2 py-1 rounded-full text-xs
-                      ${approvalSteps.length > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}
-                    `}>
+                    <span className={`px-2 py-1 rounded-full text-xs ${approvalSteps.length > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
                       {approvalSteps.length > 0 ? 'На согласовании' : 'Черновик'}
                     </span>
                   </div>
@@ -730,29 +792,13 @@ export default function CreateDocumentPage() {
         </p>
       </div>
       
-      {/* Step Indicator */}
       <div className="flex justify-center mb-8">
         <div className="flex items-center">
-          <div className={`
-            flex items-center justify-center h-10 w-10 rounded-full border-2
-            ${step >= 1 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}
-          `}>
-            1
-          </div>
+          <div className={`flex items-center justify-center h-10 w-10 rounded-full border-2 ${step >= 1 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}`}>1</div>
           <div className={`w-16 h-1 ${step >= 2 ? 'bg-primary' : 'bg-gray-300'}`}></div>
-          <div className={`
-            flex items-center justify-center h-10 w-10 rounded-full border-2
-            ${step >= 2 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}
-          `}>
-            2
-          </div>
+          <div className={`flex items-center justify-center h-10 w-10 rounded-full border-2 ${step >= 2 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}`}>2</div>
           <div className={`w-16 h-1 ${step >= 3 ? 'bg-primary' : 'bg-gray-300'}`}></div>
-          <div className={`
-            flex items-center justify-center h-10 w-10 rounded-full border-2
-            ${step >= 3 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}
-          `}>
-            3
-          </div>
+          <div className={`flex items-center justify-center h-10 w-10 rounded-full border-2 ${step >= 3 ? 'bg-primary text-primary-foreground border-primary' : 'border-gray-300 text-gray-400'}`}>3</div>
         </div>
       </div>
       

@@ -54,14 +54,16 @@ export class FileService {
 
       return new Promise((resolve, reject) => {
         blobStream.on('error', (err: Error) => {
+          console.error('Error during blobStream:', err);
           reject(err);
         });
 
         blobStream.on('finish', async () => {
-          // Делаем файл публично доступным
-          await blob.makePublic();
+          // Делаем файл публично доступным - УДАЛЕНО, так как бакет использует Uniform Bucket-Level Access
+          // await blob.makePublic(); 
           
           // Возвращаем публичный URL
+          // Убедитесь, что бакет настроен на публичный доступ через IAM, если это необходимо
           const publicUrl = `https://storage.googleapis.com/${this.bucketName}/${fileName}`;
           resolve(publicUrl);
         });
@@ -69,7 +71,7 @@ export class FileService {
         blobStream.end(file.buffer);
       });
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error in uploadFile function:', error);
       throw new Error(`Failed to upload file: ${(error as Error).message}`);
     }
   }
@@ -82,9 +84,20 @@ export class FileService {
     try {
       // Извлекаем имя файла из URL
       const urlPath = new URL(fileUrl).pathname;
-      const fileName = urlPath.replace(`/storage/v1/b/${this.bucketName}/o/`, '');
+      // Ensure correct parsing of filename from URL, especially if bucket name could be in path
+      const prefix = `/storage/v1/b/${this.bucketName}/o/`;
+      let objectName = '';
+      if (urlPath.startsWith(prefix)) {
+        objectName = urlPath.substring(prefix.length);
+      } else if (urlPath.startsWith(`/${this.bucketName}/`)) { // Alternative if URL is direct path
+        objectName = urlPath.substring(`/${this.bucketName}/`.length);
+      } else {
+        // Fallback or error if structure is unexpected
+        console.warn(`Unexpected file URL structure: ${fileUrl}. Attempting to use full path after first slash.`);
+        objectName = urlPath.startsWith('/') ? urlPath.substring(1) : urlPath;
+      }
       
-      await this.storage.bucket(this.bucketName).file(decodeURIComponent(fileName)).delete();
+      await this.storage.bucket(this.bucketName).file(decodeURIComponent(objectName)).delete();
     } catch (error) {
       console.error('Error deleting file:', error);
       throw new Error(`Failed to delete file: ${(error as Error).message}`);
