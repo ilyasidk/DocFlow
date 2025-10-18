@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DocFlow
+
+**Pet Project**: Internal document management system for local company
+
+A comprehensive document workflow management system designed as an alternative to internal document management solutions. Successfully implemented and actively used by a local company for streamlining document approval processes and internal communications.
+
+## About the Project
+
+DocFlow is a full-stack document management system built with modern web technologies. It serves as a pet project that evolved into a practical solution for a local company's internal document workflow needs.
+
+### Key Features
+
+- **Document Management**: Upload, organize, and manage documents
+- **Approval Workflow**: Streamlined document approval process
+- **User Management**: Role-based access control
+- **Analytics Dashboard**: Track document flow and user activity
+- **Real-time Notifications**: Stay updated on document status changes
+
+## Technology Stack
+
+### Frontend
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - Modern UI components
+
+### Backend
+- **Node.js** - Runtime environment
+- **Express.js** - Web framework
+- **TypeScript** - Type-safe backend development
+- **MongoDB** - Document database
+- **Mongoose** - MongoDB object modeling
+
+### Features
+- **File Upload** - Document storage and management
+- **Authentication** - Secure user authentication
+- **Role-based Access** - Different permission levels
+- **Real-time Updates** - Live document status tracking
+
+## Project Structure
+
+```
+DocFlow/
+├── src/                    # Frontend (Next.js)
+│   ├── app/               # App Router pages
+│   ├── components/        # Reusable UI components
+│   └── lib/              # Utilities and contexts
+├── backend/              # Backend API (Express.js)
+│   ├── src/
+│   │   ├── controllers/  # Request handlers
+│   │   ├── models/       # Database models
+│   │   ├── routes/       # API routes
+│   │   └── services/     # Business logic
+└── public/               # Static assets
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+ 
+- MongoDB database
+- npm or yarn
 
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/ilyasidk/DocFlow.git
+cd DocFlow
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+```bash
+# Create .env.local file with required variables
+DATABASE_URL=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Start the development server:
+```bash
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The application can be deployed on platforms like Vercel (frontend) and Railway/Heroku (backend).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Success Story
 
-## Deploy on Vercel
+This pet project was successfully implemented for a local company and is actively used for:
+- Managing internal document workflows
+- Streamlining approval processes
+- Reducing paper-based processes
+- Improving team collaboration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The system has proven its value in real-world business operations, demonstrating the practical application of modern web development technologies.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+This is a pet project, but contributions and suggestions are welcome!
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
