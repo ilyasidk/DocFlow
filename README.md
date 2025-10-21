@@ -3,6 +3,10 @@
 **Pet Project**: Internal document management system for local company
 
 A comprehensive document workflow management system designed as an alternative to internal document management solutions. Successfully implemented and actively used by a local company for streamlining document approval processes and internal communications.
+![photo_5325906455636866339_y](https://github.com/user-attachments/assets/94191dfd-366a-40c8-aafe-29fb877f5170)
+![photo_5325906455636866344_y](https://github.com/user-attachments/assets/f5b3a6f0-b28e-4e6c-9f49-eccfcf563dbd)
+![photo_5325906455636866340_y](https://github.com/user-attachments/assets/825fb69a-927b-438a-845b-5f10a6973acc)
+![photo_5325906455636866342_y](https://github.com/user-attachments/assets/f9603fd2-20dc-42a3-9acb-a0c72932c62d)
 
 ## About the Project
 
